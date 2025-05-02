@@ -8,3 +8,216 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <YourVideos />
   </React.StrictMode>
 );
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+  background-color: #f9f9f9;
+}
+
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Sparkles, Upload, Video } from "lucide-react";
+import { motion } from "framer-motion";
+
+// Sets the API endpoint for the backend server.
+// Uses environment variable if set, otherwise defaults to localhost.
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+export default function YourVideos() {
+  // State for the text input (video idea)
+  const [videoIdea, setVideoIdea] = useState("");
+  // Stores the list of generated videos
+  const [generatedVideos, setGeneratedVideos] = useState([]);
+  // Shows loading status while generating
+  const [loading, setLoading] = useState(false);
+  // Displays any error messages to the user
+  const [error, setError] = useState("");
+
+  // List of clickable example prompts
+  const suggestions = [
+    "How to grow a YouTube channel",
+    "The future of AI in education",
+    "Motivational morning routine",
+    "Top 5 travel destinations 2025",
+    "Why sleep is crucial for success",
+  ];
+
+  // Handles clicking on a suggestion to autofill the text area
+  const handleSuggestionClick = (suggestion) => {
+    setVideoIdea(suggestion);
+  };
+
+  // Function to generate video by calling the backend API
+  const handleGenerate = async () => {
+    // Validate the input
+    if (!videoIdea.trim()) {
+      setError("Please enter a video idea.");
+      return;
+    }
+    if (videoIdea.length > 1000) {
+      setError("Prompt too long. Please keep it under 1000 characters.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+      // Send a POST request to the backend API
+      const response = await fetch(`${API_URL}/generate-video`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: videoIdea }),
+      });
+
+      // Handle error response
+      if (!response.ok) throw new Error("Failed to generate video");
+
+      // Append new video to list
+      const data = await response.json();
+      setGeneratedVideos([...generatedVideos, data]);
+      setVideoIdea("");
+    } catch (err) {
+      console.error(err);
+      setError("Something went wrong. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handles uploading a text file script and placing its content in the prompt area
+  const handleScriptUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setVideoIdea(reader.result);
+    };
+    reader.readAsText(file);
+  };
+
+  return (
+    <div className="min-h-screen bg-white text-gray-900">
+      {/* Header */}
+      <header className="p-6 shadow-sm bg-blue-600 text-white flex justify-between items-center">
+        <h1 className="text-3xl font-bold">YourVideos</h1>
+        <Button variant="secondary">Login</Button>
+      </header>
+
+      {/* Main content with input and upload sections */}
+      <main className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto">
+        {/* Left card - Enter idea */}
+        <Card className="rounded-2xl shadow-md">
+          <CardContent className="p-6">
+            <h2 className="text-2xl font-semibold mb-4">Create a Video with AI</h2>
+            <Textarea
+              placeholder="Describe your video idea..."
+              className="mb-4"
+              value={videoIdea}
+              onChange={(e) => setVideoIdea(e.target.value)}
+            />
+            {/* Upload a text script */}
+            <Input type="file" accept=".txt,.docx,.pdf" className="mb-4" onChange={handleScriptUpload} />
+            {error && <p className="text-red-600 mb-2 text-sm">{error}</p>}
+            {/* Generate video button */}
+            <Button
+              className="w-full"
+              onClick={handleGenerate}
+              icon={<Sparkles size={20} />}
+              disabled={loading}
+            >
+              {loading ? "Generating..." : "Generate Video"}
+            </Button>
+
+            {/* Suggested video ideas */}
+            <div className="mt-4 space-y-2">
+              <p className="text-sm text-gray-500">Try an idea:</p>
+              <div className="flex flex-wrap gap-2">
+                {suggestions.map((suggestion, i) => (
+                  <Button
+                    key={i}
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleSuggestionClick(suggestion)}
+                  >
+                    {suggestion}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Right card - Coming soon feature */}
+        <Card className="rounded-2xl shadow-md">
+          <CardContent className="p-6">
+            <h2 className="text-2xl font-semibold mb-4">Upload Your Script</h2>
+            <Input type="file" accept=".txt,.docx,.pdf" className="mb-4" disabled />
+            <Button className="w-full" icon={<Upload size={20} />} disabled>
+              Upload and Generate (Coming Soon)
+            </Button>
+          </CardContent>
+        </Card>
+      </main>
+
+      {/* Section showing previously generated videos */}
+      <section className="px-8 mt-12 max-w-7xl mx-auto">
+        <h2 className="text-3xl font-bold text-gray-800 mb-6">Your Recent Videos</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {generatedVideos.map((video, index) => (
+            <Card key={index} className="rounded-2xl shadow-md">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-4">
+                  <Video className="text-blue-600" />
+                  <div>
+                    <p className="font-semibold">{video.title || `Video #${index + 1}`}</p>
+                    <p className="text-sm text-gray-500">Generated on: {new Date().toLocaleDateString()}</p>
+                  </div>
+                </div>
+                <a href={video.url} target="_blank" rel="noopener noreferrer">
+                  <Button className="mt-4 w-full" variant="secondary">View Video</Button>
+                </a>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* PayPal subscription button */}
+      <section className="px-8 py-12 max-w-2xl mx-auto">
+        <h2 className="text-3xl font-bold text-gray-800 mb-4 text-center">Subscribe to Unlock Premium Features</h2>
+        <p className="text-center text-gray-600 mb-6">Support our platform and create unlimited AI videos!</p>
+
+        {/* Load PayPal SDK */}
+        <div id="paypal-button-container" className="flex justify-center">
+          {/* You will replace YOUR_PAYPAL_CLIENT_ID below */}
+          <script src="https://www.paypal.com/sdk/js?client-id=YOUR_PAYPAL_CLIENT_ID&vault=true&intent=subscription"></script>
+          <script>
+            {`
+              window.paypal.Buttons({
+                createSubscription: function(data, actions) {
+                  return actions.subscription.create({
+                    'plan_id': 'YOUR_PAYPAL_PLAN_ID'
+                  });
+                },
+                onApprove: function(data, actions) {
+                  alert('Subscription successful! ID: ' + data.subscriptionID);
+                }
+              }).render('#paypal-button-container');
+            `}
+          </script>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="text-center p-6 text-sm text-gray-500 mt-16 border-t">
+        <p>&copy; {new Date().getFullYear()} YourVideos. AI-powered video creation for everyone. Share your ideas, inspire the world.</p>
+      </footer>
+    </div>
+  );
+}
